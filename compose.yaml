@@ -1,0 +1,31 @@
+services:
+  asaci-agent:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_PATH: /app/data/asaci.db
+    volumes:
+      - asaci-data:/app/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 15s
+      timeout: 3s
+      retries: 5
+  voice-agent:
+    build: .
+    command: ["python", "-m", "agent.worker", "start"]
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      AGENT_API_BASE_URL: http://asaci-agent:8000
+    restart: unless-stopped
+    depends_on:
+      asaci-agent:
+        condition: service_healthy
+volumes:
+  asaci-data:

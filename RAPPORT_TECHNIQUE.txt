@@ -1,0 +1,487 @@
+RAPPORT TECHNIQUE ET PEDAGOGIQUE
+POC D'AGENT VOCAL CONVERSATIONNEL ASACI
+============================================================
+
+Date : 2 septembre 2026
+Depot : Agent-parlant-avec-Livekit
+Statut : preuve de concept (POC), donnees fictives et anonymisees
+
+
+1. OBJECTIF GENERAL
+============================================================
+
+Ce projet est une application web de centre d'appels. Un utilisateur ouvre
+l'application dans son navigateur, autorise le microphone et parle en francais.
+Sa voix est transportee en temps reel jusqu'a un agent d'intelligence
+artificielle. L'agent comprend la demande, repond oralement, affiche les
+transcriptions, identifie le service concerne et suit une procedure de
+demonstration.
+
+Le POC ne se connecte a aucun systeme ASACI reel. Il n'effectue aucun paiement,
+ne modifie aucun dossier reel et n'execute aucune operation irreversible. Les
+references, tickets, dossiers et escalades sont fictifs.
+
+
+2. TECHNOLOGIES UTILISEES ET LEUR ROLE
+============================================================
+
+2.1 Python
+------------------------------------------------------------
+
+Python est le langage principal du backend et de l'agent vocal. Un backend est
+la partie de l'application qui fonctionne sur un serveur et que l'utilisateur
+ne voit pas directement.
+
+Python est utilise pour :
+- exposer les APIs appelees par le navigateur ;
+- enregistrer les conversations ;
+- generer les jetons temporaires LiveKit ;
+- appliquer les regles de securite et les procedures metier ;
+- executer le worker vocal LiveKit Agents ;
+- relier la voix a OpenAI Realtime API.
+
+Pourquoi Python : son code est lisible, son ecosysteme IA est tres developpe et
+il permet de construire rapidement un POC maintenable.
+
+Alternatives :
+- TypeScript/Node.js : tres adapte aux applications web temps reel et permet
+  d'utiliser le meme langage au frontend et au backend ;
+- Go : performant, peu gourmand et facile a deployer sous forme d'un binaire ;
+- Java/Spring Boot : robuste pour un grand systeme d'entreprise, mais plus lourd
+  pour un POC ;
+- C#/.NET : excellente integration aux environnements Microsoft et Azure.
+
+
+2.2 FastAPI
+------------------------------------------------------------
+
+FastAPI est le framework web Python du projet. Un framework fournit une
+structure et des outils prets a l'emploi pour creer un serveur HTTP.
+
+FastAPI sert a :
+- recevoir les messages texte et audio ;
+- creer et consulter une conversation ;
+- fournir au navigateur un jeton LiveKit temporaire ;
+- recevoir les transcriptions produites par le worker ;
+- exposer la documentation interactive /docs ;
+- controler les donnees entrantes avec des schemas types.
+
+Particularites : syntaxe simple, validation automatique, documentation OpenAPI,
+bonnes performances et prise en charge naturelle du code asynchrone.
+
+Alternatives Python :
+- Flask : encore plus minimal, mais demande davantage d'assemblage manuel ;
+- Django + Django REST Framework : tres complet (ORM, administration,
+  authentification), mieux adapte a une grosse application metier ;
+- Litestar : moderne et proche de FastAPI ;
+- Sanic ou aiohttp : efficaces en asynchrone, mais moins guides pour une API
+  metier classique.
+
+
+2.3 React
+------------------------------------------------------------
+
+React construit l'interface visible dans le navigateur. L'ecran est decoupe en
+composants : console d'appel, transcription, qualification, procedure et page
+de conformite. Quand une information change, React met a jour uniquement la
+partie concernee de l'ecran.
+
+Alternatives : Vue.js (progressif et accessible), Angular (framework complet
+pour grandes equipes), Svelte (leger et compile) ou une interface HTML/JS sans
+framework pour un produit tres simple.
+
+
+2.4 TypeScript
+------------------------------------------------------------
+
+TypeScript ajoute des types a JavaScript. Il permet par exemple d'indiquer
+qu'une reponse contient obligatoirement un service, une procedure et un type
+d'escalade. Le compilateur detecte de nombreuses erreurs avant le lancement.
+
+Alternative : JavaScript classique, plus rapide a commencer mais moins sur
+pour une application qui grandit.
+
+
+2.5 Vite
+------------------------------------------------------------
+
+Vite est l'outil de developpement et de compilation du frontend. En
+developpement, il recharge rapidement la page apres une modification. Pour la
+production, il transforme et compresse React, TypeScript et les styles en
+fichiers statiques optimises servis par FastAPI.
+
+Alternatives : webpack (tres configurable mais plus complexe), Parcel (simple),
+Rsbuild ou un framework complet comme Next.js.
+
+
+2.6 WebRTC et LiveKit Cloud
+------------------------------------------------------------
+
+WebRTC est une technologie de communication temps reel integree aux
+navigateurs. Elle transporte la voix avec une latence faible.
+
+LiveKit fournit la couche temps reel au-dessus de WebRTC :
+- une room, equivalente a une salle d'appel privee ;
+- la publication du microphone de l'appelant ;
+- la reception de la voix de l'agent ;
+- la gestion des participants et des pistes audio ;
+- l'acheminement vers un worker LiveKit Agents.
+
+Le navigateur ne recoit jamais le secret LiveKit. Il demande a FastAPI un JWT
+ephemere, valable cinq minutes par defaut et limite a une seule room.
+
+Alternatives : Daily, Twilio Voice/Video, Agora, Vonage, Amazon Chime SDK,
+mediasoup ou Janus. LiveKit peut aussi etre auto-heberge, au prix d'une charge
+d'exploitation plus importante.
+
+
+2.7 LiveKit Agents
+------------------------------------------------------------
+
+LiveKit Agents est le framework Python qui connecte un agent IA aux rooms
+LiveKit. Le worker attend un appel, rejoint la room, recoit l'audio et publie la
+voix generee par l'IA.
+
+AgentSession gere le cycle d'une conversation : entree audio, modele, sortie
+audio, interruption, evenements de transcription et erreurs. Le projet ecoute
+ces evenements et les renvoie a FastAPI pour conservation.
+
+Alternatives Python :
+- Pipecat : framework open source de pipelines vocaux temps reel ;
+- Vocode : framework d'agents vocaux ;
+- OpenAI Agents SDK avec une couche WebRTC personnalisee ;
+- implementation directe avec le SDK LiveKit et WebSocket, plus flexible mais
+  beaucoup plus complexe ;
+- solutions gerees comme Vapi ou Retell AI, rapides a integrer mais moins
+  controlables et potentiellement plus dependantes d'un fournisseur.
+
+
+2.8 OpenAI Realtime API
+------------------------------------------------------------
+
+OpenAI Realtime API permet une conversation audio vers audio. Contrairement a
+une chaine classique qui fait successivement transcription, texte puis synthese
+vocale, un modele Realtime peut comprendre l'audio et produire directement de
+l'audio. Cela reduit la latence et rend les interruptions plus naturelles.
+
+Dans ce projet, le plugin LiveKit OpenAI instancie le modele gpt-realtime et une
+voix configurable. Un prompt en francais definit le comportement, les
+procedures autorisees et les limites de securite.
+
+Alternatives :
+- chaine STT + LLM + TTS avec Whisper/Deepgram, un modele de langage, puis
+  ElevenLabs/Azure Speech/Google TTS ;
+- Azure OpenAI Realtime selon disponibilite ;
+- Gemini Live API ;
+- modeles vocaux auto-heberges, qui offrent plus de controle mais exigent une
+  infrastructure GPU et davantage d'exploitation.
+
+
+2.9 SQLite
+------------------------------------------------------------
+
+SQLite est une base de donnees stockee dans un fichier. Elle conserve les
+conversations, les messages et les evenements d'audit du POC.
+
+Particularites : aucune installation de serveur, sauvegarde simple et parfaite
+pour une demonstration mono-instance.
+
+Limites : SQLite n'est pas le choix ideal pour plusieurs instances cloud qui
+ecrivent simultanement. En production, PostgreSQL est l'alternative conseillee.
+Autres alternatives : MySQL/MariaDB, SQL Server ou une base geree du fournisseur
+cloud.
+
+
+2.10 Docker et Docker Compose
+------------------------------------------------------------
+
+Docker empaquette l'application et ses dependances dans une image reproductible.
+Le Dockerfile compile d'abord React avec Node.js, puis construit le service
+Python final. Docker Compose lance deux processus : l'API web et le worker vocal.
+
+Alternatives : installation directe sur une machine virtuelle, services PaaS
+comme Azure Container Apps/Cloud Run/Render, ou Kubernetes pour une plateforme
+a grande echelle.
+
+
+3. LIBRAIRIES UTILISEES
+============================================================
+
+3.1 Bibliotheques Python principales
+------------------------------------------------------------
+
+fastapi 0.116.1
+  Role : creation des routes HTTP et validation de l'API.
+  Particularite : documentation OpenAPI automatique.
+  Alternatives : Flask, Django REST Framework, Litestar.
+
+uvicorn 0.35.0
+  Role : serveur ASGI qui execute FastAPI.
+  Particularite : rapide, asynchrone et adapte au developpement comme au cloud.
+  Alternatives : Hypercorn, Daphne, Granian, Gunicorn avec worker ASGI.
+
+python-multipart 0.0.20
+  Role : lecture des formulaires et fichiers audio envoyes au backend.
+  Particularite : necessaire pour UploadFile/Form dans FastAPI.
+  Alternatives : analyse manuelle des requetes, rarement justifiee.
+
+openai 2.54.0
+  Role : acces Python aux APIs OpenAI pour texte, transcription et synthese.
+  Particularite : SDK officiel avec clients synchrones et asynchrones.
+  Alternatives : appels HTTP directs avec httpx, SDK Azure OpenAI, LangChain
+  pour une orchestration plus large (mais plus lourde).
+
+httpx 0.28.1
+  Role : client HTTP moderne utilise pour les integrations et les tests.
+  Particularite : interfaces synchrone et asynchrone.
+  Alternatives : requests (synchrone), aiohttp (asynchrone), urllib3.
+
+livekit-agents 1.7.1
+  Role : cycle de vie du worker vocal et AgentSession.
+  Particularite : integration native aux rooms, evenements, interruptions,
+  metriques et plugins de modeles.
+  Alternatives : Pipecat, Vocode, architecture maison.
+
+livekit-plugins-openai 1.7.1
+  Role : branche OpenAI Realtime sur AgentSession.
+  Particularite : adaptateur officiel LiveKit evitant de gerer directement les
+  trames audio et le protocole Realtime.
+  Alternatives : SDK OpenAI direct, plugin Azure, pipeline STT/LLM/TTS.
+
+aiohttp (dependance de LiveKit Agents)
+  Role : communications HTTP asynchrones du worker, notamment vers l'API
+  interne de persistance.
+  Alternative : httpx.AsyncClient.
+
+Pydantic (dependance de FastAPI/LiveKit)
+  Role : modeles de donnees, validation et conversion des entrees.
+  Alternatives : dataclasses + validation manuelle, attrs, Marshmallow.
+
+pytest et pytest-cov (developpement)
+  Role : tests automatises et mesure de couverture.
+  Alternatives : unittest inclus dans Python, nose2.
+
+
+3.2 Bibliotheques frontend principales
+------------------------------------------------------------
+
+react et react-dom
+  Role : composants et rendu de l'interface.
+
+react-router
+  Role : navigation entre la console et la page de conformite sans recharger
+  completement l'application.
+
+@tanstack/react-query
+  Role : appels API, cache, et actualisation periodique de la conversation.
+  Particularite : separe les donnees serveur de l'etat visuel local.
+  Alternatives : SWR, Redux Toolkit Query, fetch avec hooks maison.
+
+livekit-client
+  Role : connexion WebRTC, room, participants et pistes audio.
+
+@livekit/components-react
+  Role : composants React LiveKitRoom et RoomAudioRenderer.
+
+@livekit/components-styles
+  Role : styles de base des composants LiveKit.
+
+tailwindcss et @tailwindcss/vite
+  Role : utilitaires CSS et integration a la compilation Vite.
+  Alternative : CSS Modules, Sass, styled-components, Emotion.
+
+
+4. ARCHITECTURE DU SYSTEME
+============================================================
+
+4.1 Architecture logique
+------------------------------------------------------------
+
+  Navigateur React
+       |  demande un jeton temporaire
+       v
+  API FastAPI -----------------------> SQLite
+       |                                conversations
+       | JWT ephemere                   messages
+       v                                audit
+  Room LiveKit Cloud
+       ^        |
+       | audio  | audio
+       |        v
+  Worker Python LiveKit Agents
+       |
+       v
+  OpenAI Realtime API
+
+En parallele, le worker envoie les transcriptions et erreurs a une route interne
+FastAPI protegee par AGENT_INTERNAL_API_KEY. Le navigateur relit regulierement
+la conversation afin d'afficher la transcription.
+
+
+4.2 Pourquoi un monolithe modulaire avec un worker separe
+------------------------------------------------------------
+
+Le backend reste un seul projet Python afin que le POC soit facile a comprendre,
+tester et deployer. Les responsabilites sont toutefois separees par modules.
+
+Le worker vocal est un processus distinct car il a un cycle de vie different :
+il maintient des connexions temps reel longues, tandis que l'API repond a des
+requetes HTTP courtes. Cette separation permet de redemarrer ou multiplier les
+workers sans interrompre le site web.
+
+
+4.3 Securite par frontieres
+------------------------------------------------------------
+
+Trois frontieres sont explicites :
+
+1. Navigateur vers FastAPI
+   Le navigateur ne connait que des jetons temporaires. Les secrets OpenAI et
+   LiveKit restent sur le serveur.
+
+2. Worker vers FastAPI
+   La route de persistance interne exige une cle partagee et comparee de facon
+   securisee. Elle n'est pas affichee dans la documentation publique.
+
+3. Agent vers futures APIs ASACI
+   Toutes les integrations passent par app/integrations.py. Une fonction doit
+   etre dans une liste blanche, reversible et parfois approuvee par un humain.
+   Dans le POC, toutes les integrations restent simulees.
+
+
+5. ARBORESCENCE DU PROJET
+============================================================
+
+Agent-parlant-avec-Livekit/
+|
+|-- agent/
+|   |-- worker.py          Worker LiveKit Agents et evenements temps reel
+|   |-- prompt.py          Instructions vocales francaises et garde-fous
+|   `-- __init__.py
+|
+|-- app/
+|   |-- main.py            Routes FastAPI, jetons, telephonie et API interne
+|   |-- config.py          Variables d'environnement centralisees
+|   |-- database.py        SQLite, conversations, messages et audit
+|   |-- services.py        Texte, transcription, synthese et mode fictif
+|   |-- prompt.py          Prompt structure de l'agent textuel
+|   |-- realtime.py        Signature des JWT ephemeres LiveKit
+|   |-- integrations.py    Liste blanche des futures fonctions metier
+|   |-- static/            Frontend compile pour la production
+|   `-- __init__.py
+|
+|-- frontend/
+|   |-- src/
+|   |   |-- App.tsx                Routes et structure globale
+|   |   |-- CallCenterPage.tsx     Ecran d'appel et transcription
+|   |   |-- CompliancePage.tsx     Garde-fous visibles
+|   |   |-- LiveKitVoice.tsx       Connexion a la room WebRTC
+|   |   |-- api.ts                 Client des APIs FastAPI
+|   |   |-- types.ts               Contrats TypeScript
+|   |   |-- styles.css             Theme et responsive
+|   |   `-- main.tsx               Demarrage React et TanStack Query
+|   |-- package.json               Dependances et commandes frontend
+|   |-- package-lock.json          Versions exactes reproductibles
+|   |-- vite.config.ts             Build et proxy de developpement
+|   `-- tsconfig*.json             Configuration TypeScript
+|
+|-- tests/
+|   `-- test_app.py        Tests API, securite, JWT et persistance
+|
+|-- Dockerfile             Image multi-etapes frontend + Python
+|-- compose.yaml           API et worker vocal
+|-- requirements.txt       Dependances de l'API
+|-- requirements-agent.txt Dependances du worker
+|-- requirements-dev.txt   Dependances de test
+|-- .env.example           Modele de configuration sans secret
+|-- .gitignore             Exclusion secrets, bases locales et caches
+|-- README.md              Guide de lancement
+`-- RAPPORT_TECHNIQUE.txt  Present rapport
+
+
+6. POURQUOI CETTE ARBORESCENCE
+============================================================
+
+- agent/ isole le processus temps reel du serveur HTTP.
+- app/ regroupe le backend sans melanger interface et logique metier.
+- frontend/ permet de developper et tester React independamment.
+- app/static/ contient uniquement le resultat compile que FastAPI sert en
+  production.
+- tests/ centralise les scenarios reproductibles.
+- les fichiers requirements sont separes pour ne pas imposer toutes les
+  dependances lourdes de l'agent a un developpeur qui ne travaille que sur l'API.
+- la configuration reste dans l'environnement et non dans le code, afin de ne
+  pas publier les secrets.
+
+
+7. PARCOURS D'UN APPEL
+============================================================
+
+1. React demande a FastAPI de creer une conversation fictive.
+2. L'utilisateur clique sur Demarrer l'appel.
+3. React demande un jeton LiveKit a FastAPI.
+4. FastAPI verifie la conversation et cree une identite anonymisee.
+5. React rejoint une room WebRTC avec le jeton ephemere.
+6. LiveKit affecte la room au worker Python.
+7. Le worker connecte l'audio a OpenAI Realtime.
+8. L'agent accueille l'utilisateur et converse en francais.
+9. Les transcriptions finales et reponses sont renvoyees a FastAPI.
+10. FastAPI les conserve dans SQLite et React les affiche.
+11. Toute escalade reste une simulation clairement annoncee.
+
+
+8. LIMITES DU POC ET EVOLUTION VERS LA PRODUCTION
+============================================================
+
+Le POC demontre la faisabilite, mais une production necessiterait :
+- procedures ASACI officiellement validees et versionnees ;
+- PostgreSQL gere a la place de SQLite ;
+- authentification SSO et gestion fine des roles ;
+- coffre de secrets cloud et rotation des cles ;
+- chiffrement, politique de retention et droit a l'effacement ;
+- observabilite sans donnees personnelles ;
+- tests de charge, latence, interruptions et qualite audio ;
+- haute disponibilite de l'API et plusieurs workers ;
+- validation juridique et protection des donnees ;
+- consentement explicite avant enregistrement ;
+- revue humaine avant toute fonction metier ayant un effet reel ;
+- passerelle API avec OAuth2/mTLS, quotas, idempotence et journal d'audit.
+
+
+9. SOURCES OFFICIELLES UTILES
+============================================================
+
+OpenAI Realtime API :
+https://developers.openai.com/api/docs/guides/realtime
+
+LiveKit Agents et OpenAI Realtime :
+https://docs.livekit.io/agents/models/realtime/plugins/openai/
+
+LiveKit, generation des jetons :
+https://docs.livekit.io/home/server/generating-tokens/
+
+FastAPI :
+https://fastapi.tiangolo.com/
+
+React :
+https://react.dev/
+
+TanStack Query :
+https://tanstack.com/query/latest/docs/framework/react/overview
+
+Vite :
+https://vite.dev/
+
+Docker :
+https://docs.docker.com/
+
+
+10. CONCLUSION
+============================================================
+
+L'architecture choisie separe clairement l'interface, l'API, le temps reel,
+l'intelligence artificielle et la persistance. Elle reste assez simple pour une
+demonstration, tout en preparant une evolution vers des services cloud plus
+robustes. Les garde-fous empechent le POC de se comporter comme un systeme ASACI
+reel. Les integrations futures sont prevues, mais elles ne pourront etre
+activees qu'apres une autorisation explicite et une implementation securisee.
