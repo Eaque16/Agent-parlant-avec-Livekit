@@ -2,7 +2,11 @@ import os
 from pathlib import Path
 
 os.environ["DATABASE_PATH"] = str(Path(__file__).parent / "test.db")
+os.environ["PYTHON_DOTENV_DISABLED"] = "1"
 os.environ.pop("OPENAI_API_KEY", None)
+os.environ.pop("LIVEKIT_URL", None)
+os.environ.pop("LIVEKIT_API_KEY", None)
+os.environ.pop("LIVEKIT_API_SECRET", None)
 
 from fastapi.testclient import TestClient
 from app.main import app
