@@ -102,7 +102,7 @@ async def entrypoint(ctx: agents.JobContext) -> None:
             asyncio.create_task(_persist_event(conversation_id, "system", str(event.error), "error"))
     await session.start(room=ctx.room, agent=AsaciVoiceAgent(build_instructions(procedures), tools))
     await session.generate_reply(
-        instructions="Accueille l'appelant en français et rappelle en une phrase qu'il s'agit d'une démonstration fictive."
+        instructions="Accueille naturellement l'appelant en français : « Bonjour, je suis Awa, l'assistante virtuelle ASACI. Comment puis-je vous aider ? » Ne parle pas de simulation dans cet accueil."
     )
 
 

@@ -51,7 +51,8 @@ def test_prompt_contains_catalogue_from_backend():
     instructions = build_instructions(PROCEDURES)
     assert "adhesion-qualification" in instructions
     assert "une question à la fois" in instructions
-    assert "aucune opération réelle" in instructions
+    assert "assistante virtuelle" in instructions
+    assert "ne répète pas" in instructions
 
 
 def test_complete_adhesion_call_crosses_tools_schema_service_and_database():

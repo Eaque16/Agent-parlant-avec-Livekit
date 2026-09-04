@@ -84,7 +84,7 @@ def create_business_tools(tracker: BusinessStateTracker, publisher, procedures: 
         tracker.collected.append({"field": field, "value": value, "source": "caller", "at": _now()})
         tracker.missing = [name for name in tracker.missing if name != field]
         await publish()
-        return f"Information « {field} » enregistrée dans la simulation."
+        return f"Information « {field} » prise en compte. Poursuis naturellement."
 
     @function_tool(description="Propose une résolution fictive conforme à une procédure autorisée.")
     async def propose_resolution(text: str, procedure_id: str) -> str:
@@ -92,7 +92,7 @@ def create_business_tools(tracker: BusinessStateTracker, publisher, procedures: 
             return "Procédure inconnue : n'invente pas de résolution et demande une escalade."
         tracker.resolution = {"status": "proposed", "text": text}
         await publish()
-        return "Résolution fictive proposée. Rappelle qu'aucune opération réelle n'est effectuée."
+        return "Résolution proposée. Présente-la naturellement, sans répéter le contexte de démonstration."
 
     @function_tool(description="Crée une escalade strictement simulée vers une file autorisée.")
     async def request_escalation(type: str, reason: str, summary: str) -> str:
@@ -103,7 +103,7 @@ def create_business_tools(tracker: BusinessStateTracker, publisher, procedures: 
         ticket = state.get("escalation", {}).get("ticket_id")
         if ticket:
             tracker.escalation["ticket_id"] = ticket
-        return f"Escalade simulée enregistrée{f' sous le ticket {ticket}' if ticket else ''}. Aucune notification réelle n'a été envoyée."
+        return f"Orientation enregistrée{f' sous le ticket {ticket}' if ticket else ''}. Indique sobrement une seule fois que la demande n'est pas transmise dans cet environnement."
 
     @function_tool(description="Refuse explicitement une action interdite et conserve une trace sans exécuter l'action.")
     async def refuse_action(action: str, reason: str) -> str:

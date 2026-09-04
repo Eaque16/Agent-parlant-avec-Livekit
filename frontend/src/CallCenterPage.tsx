@@ -10,7 +10,7 @@ import { Icon } from './components/Icon'
 type SpeechRecognitionLike = {lang:string;continuous:boolean;interimResults:boolean;start():void;stop():void;onresult:((e:any)=>void)|null;onend:(()=>void)|null;onerror:((e:any)=>void)|null}
 
 export function CallCenterPage(){
- const [id,setId]=useState(''),[messages,setMessages]=useState<Message[]>([{role:'assistant',content:'Bonjour, je suis Awa, votre assistante virtuelle. Comment puis-je vous accompagner aujourd’hui ?'}]),[live,setLive]=useState('Prête à vous écouter.'),[active,setActive]=useState(false),[,setOutcome]=useState<Outcome>(),[text,setText]=useState('')
+ const [id,setId]=useState(''),[messages,setMessages]=useState<Message[]>([{role:'assistant',content:'Bonjour, je suis Awa, l’assistante virtuelle ASACI. Comment puis-je vous aider ?'}]),[live,setLive]=useState('Prête à vous écouter.'),[active,setActive]=useState(false),[,setOutcome]=useState<Outcome>(),[text,setText]=useState('')
  const recognition=useRef<SpeechRecognitionLike|null>(null), realtime=useRealtimeRoom(), business=useBusinessState(id)
  const {data:storedConversation}=useQuery({queryKey:['conversation',id],queryFn:()=>api.conversation(id),enabled:!!id,refetchInterval:active?5000:false})
  useEffect(()=>{api.createConversation().then(c=>setId(c.id))},[])
