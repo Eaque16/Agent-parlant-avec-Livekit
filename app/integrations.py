@@ -1,4 +1,5 @@
 """Frontière de sécurité des futures intégrations ASACI."""
+
 from dataclasses import dataclass
 from typing import Any
 
@@ -19,10 +20,21 @@ class BusinessFunction:
 
 AUTHORIZED_FUNCTIONS = {
     "read_case_status": BusinessFunction("read_case_status", True, False, "Lire le statut anonymisé d'un dossier"),
-    "create_support_draft": BusinessFunction("create_support_draft", True, True, "Préparer un brouillon de ticket support"),
-    "request_human_callback": BusinessFunction("request_human_callback", True, True, "Demander un rappel après confirmation humaine"),
+    "create_support_draft": BusinessFunction(
+        "create_support_draft", True, True, "Préparer un brouillon de ticket support"
+    ),
+    "request_human_callback": BusinessFunction(
+        "request_human_callback", True, True, "Demander un rappel après confirmation humaine"
+    ),
 }
-FORBIDDEN_FUNCTIONS = {"take_payment", "refund_payment", "delete_case", "close_case", "change_beneficiary", "approve_claim"}
+FORBIDDEN_FUNCTIONS = {
+    "take_payment",
+    "refund_payment",
+    "delete_case",
+    "close_case",
+    "change_beneficiary",
+    "approve_claim",
+}
 
 
 def invoke(function_name: str, payload: dict[str, Any], *, approved_by: str | None = None) -> dict:

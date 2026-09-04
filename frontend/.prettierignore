@@ -1,0 +1,5 @@
+node_modules
+dist
+../app/static
+*.tsbuildinfo
+package-lock.json

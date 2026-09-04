@@ -1,0 +1,27 @@
+[project]
+name = "asaci-voice-agent"
+version = "0.2.0"
+description = "POC d'agent vocal conversationnel ASACI (FastAPI, LiveKit Agents, React)"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+extend-exclude = [".venv", ".tools", "frontend", "app/static"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "W"]
+# B008 : `Depends(...)` en valeur par défaut est l'idiome FastAPI.
+ignore = ["B008"]
+
+[tool.ruff.lint.per-file-ignores]
+# Les prompts sont de la prose : les lignes longues y sont volontaires.
+"app/prompt.py" = ["E501"]
+"agent/prompts/*.py" = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app", "agent"]

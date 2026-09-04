@@ -1,0 +1,17 @@
+.git
+.venv
+.tools
+.pytest_cache
+.ruff_cache
+__pycache__
+*.py[cod]
+*.log
+*.db
+data
+docs
+tests
+.env
+frontend/node_modules
+frontend/dist
+frontend/*.tsbuildinfo
+app/static

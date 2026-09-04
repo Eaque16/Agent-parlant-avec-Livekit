@@ -1,7 +1,15 @@
-export type BusinessService = 'adhesion' | 'cotisations' | 'prestations' | 'reclamations' | 'support_it' | 'inconnu'
+export type BusinessService =
+  'adhesion' | 'cotisations' | 'prestations' | 'reclamations' | 'support_it' | 'inconnu'
 export type EscalationType = 'none' | 'conseiller' | 'support_it' | 'pool_tpv'
 export type ResolutionStatus = 'none' | 'proposed' | 'accepted' | 'refused'
-export type RiskFlag = 'paiement_demande' | 'hors_perimetre' | 'incomprehension_repetee' | 'dossier_bloque' | 'incident_technique' | 'detresse' | 'donnee_sensible'
+export type RiskFlag =
+  | 'paiement_demande'
+  | 'hors_perimetre'
+  | 'incomprehension_repetee'
+  | 'dossier_bloque'
+  | 'incident_technique'
+  | 'detresse'
+  | 'donnee_sensible'
 
 export interface BusinessState {
   conversation_id: string
@@ -16,7 +24,13 @@ export interface BusinessState {
   collected: Array<{ field: string; value: string; source: 'caller' | 'agent' | 'system'; at: string }>
   missing: string[]
   resolution: { status: ResolutionStatus; text: string | null }
-  escalation: { required: boolean; type: EscalationType; reason: string | null; queued_at: string | null; ticket_id: string | null }
+  escalation: {
+    required: boolean
+    type: EscalationType
+    reason: string | null
+    queued_at: string | null
+    ticket_id: string | null
+  }
   risk_flags: RiskFlag[]
   final_summary: string | null
   is_final: boolean

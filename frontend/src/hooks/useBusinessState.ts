@@ -20,21 +20,34 @@ export function useBusinessState(conversationId: string) {
   }, [])
   const synchronize = useCallback(async () => {
     if (!conversationId) return
-    try { apply(await api.businessState(conversationId)) } catch { /* le polling reprendra */ }
+    try {
+      apply(await api.businessState(conversationId))
+    } catch {
+      /* le polling reprendra */
+    }
   }, [conversationId, apply])
-  useEffect(() => { version.current = 0; setState(undefined); void synchronize() }, [conversationId, synchronize])
+  useEffect(() => {
+    version.current = 0
+    setState(undefined)
+    void synchronize()
+  }, [conversationId, synchronize])
   useEffect(() => {
     const onData = (payload: Uint8Array, _participant: unknown, _kind: unknown, topic?: string) => {
       try {
         const parsed = JSON.parse(new TextDecoder().decode(payload))
         if (topic === 'business_state') apply(parsed as BusinessState)
         if (topic === 'transcript_partial') setPartialTranscript(parsed.text ?? '')
-      } catch { /* charge utile étrangère ignorée */ }
+      } catch {
+        /* charge utile étrangère ignorée */
+      }
     }
     const onReconnect = () => void synchronize()
     room.on(RoomEvent.DataReceived, onData)
     room.on(RoomEvent.Reconnected, onReconnect)
-    return () => { room.off(RoomEvent.DataReceived, onData); room.off(RoomEvent.Reconnected, onReconnect) }
+    return () => {
+      room.off(RoomEvent.DataReceived, onData)
+      room.off(RoomEvent.Reconnected, onReconnect)
+    }
   }, [room, apply, synchronize])
   useEffect(() => {
     if (!conversationId) return
@@ -43,7 +56,14 @@ export function useBusinessState(conversationId: string) {
     socket.onopen = () => setSocketOpen(true)
     socket.onclose = () => setSocketOpen(false)
     socket.onerror = () => setSocketOpen(false)
-    socket.onmessage = event => { try { const message = JSON.parse(event.data); if (message.topic === 'business_state') apply(message.payload) } catch { /* invalide */ } }
+    socket.onmessage = (event) => {
+      try {
+        const message = JSON.parse(event.data)
+        if (message.topic === 'business_state') apply(message.payload)
+      } catch {
+        /* invalide */
+      }
+    }
     return () => socket.close()
   }, [conversationId, apply])
   useEffect(() => {

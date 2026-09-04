@@ -1,6 +1,4 @@
 import re
-from dataclasses import dataclass
-
 
 MASK = "[DONNÉE SENSIBLE MASQUÉE]"
 IBAN_RE = re.compile(r"\b[A-Z]{2}\s?\d{2}(?:[\s-]?[A-Z0-9]){11,30}\b", re.IGNORECASE)

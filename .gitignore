@@ -1,16 +1,26 @@
+# Python
 __pycache__/
 *.py[cod]
 .pytest_cache/
+.ruff_cache/
 .coverage
-.env
 .venv/
+
+# Secrets et données locales
+.env
 data/
 *.db
 *.sqlite
 *.sqlite3
+*.log
+
+# Frontend
 frontend/node_modules/
 frontend/dist/
-.tools/
 frontend/*.tsbuildinfo
-asaci-server.log
-asaci-server-error.log
+
+# Outils locaux et éditeurs
+.tools/
+.idea/
+.vscode/
+.DS_Store

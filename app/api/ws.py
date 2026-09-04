@@ -4,7 +4,6 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from ..database import get_conversation
 
-
 router = APIRouter()
 
 

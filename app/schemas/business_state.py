@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Literal
 from uuid import UUID
@@ -71,7 +71,7 @@ class CollectedField(StrictModel):
     field: str = Field(min_length=1, max_length=120)
     value: str = Field(min_length=1, max_length=2000)
     source: Literal["caller", "agent", "system"] = "caller"
-    at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class Resolution(StrictModel):
@@ -104,7 +104,7 @@ class Escalation(StrictModel):
 class BusinessState(StrictModel):
     conversation_id: UUID
     state_version: int = Field(ge=1)
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     language: Literal["fr"] = "fr"
     service: Service = Service.INCONNU
     intent: Intent

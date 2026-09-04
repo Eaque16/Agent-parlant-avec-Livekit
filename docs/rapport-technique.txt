@@ -1,3 +1,14 @@
+NOTE DE MISE A JOUR (4 septembre 2026)
+------------------------------------------------------------
+Ce rapport decrit l'etat du POC au 2 septembre 2026. Depuis :
+- le worker vocal utilise Gemini Live (Google) par defaut ; OpenAI Realtime
+  reste disponible avec VOICE_PROVIDER=openai ;
+- le worker publie un etat metier structure (service, intention, procedure,
+  etape, informations recueillies, escalade) affiche en direct par l'interface ;
+- l'API est decoupee en routeurs (app/api/) et les services metier vivent
+  dans app/services/. Le README decrit l'arborescence a jour.
+
+
 RAPPORT TECHNIQUE ET PEDAGOGIQUE
 POC D'AGENT VOCAL CONVERSATIONNEL ASACI
 ============================================================

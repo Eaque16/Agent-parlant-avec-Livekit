@@ -1,10 +1,11 @@
+"""Files d'escalade simulées : un ticket fictif unique par conversation et par destination."""
+
 import sqlite3
 from uuid import uuid4
 
-from ..database import utcnow
+from ..database import connection, utcnow
 
-
-QUEUE_TYPES = {"conseiller", "support_it", "pool_tpv"}
+QUEUE_TYPES = ("conseiller", "support_it", "pool_tpv")
 
 
 def get_or_create_ticket(db: sqlite3.Connection, conversation_id: str, escalation_type: str, reason: str) -> dict:
@@ -25,15 +26,15 @@ def get_or_create_ticket(db: sqlite3.Connection, conversation_id: str, escalatio
         "status": "simule_en_attente",
     }
     db.execute(
-        "INSERT INTO escalation_tickets(ticket_id,conversation_id,type,reason,created_at,status) VALUES (:ticket_id,:conversation_id,:type,:reason,:created_at,:status)",
+        "INSERT INTO escalation_tickets(ticket_id, conversation_id, type, reason, created_at, status) "
+        "VALUES (:ticket_id, :conversation_id, :type, :reason, :created_at, :status)",
         ticket,
     )
     return ticket
 
 
 def list_queues() -> dict[str, list[dict]]:
-    from ..database import connection
-    result = {name: [] for name in sorted(QUEUE_TYPES)}
+    result: dict[str, list[dict]] = {name: [] for name in sorted(QUEUE_TYPES)}
     with connection() as db:
         for row in db.execute("SELECT * FROM escalation_tickets ORDER BY created_at"):
             result[row["type"]].append(dict(row))

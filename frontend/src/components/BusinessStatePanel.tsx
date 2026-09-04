@@ -3,7 +3,131 @@ import { EscalationCard } from './EscalationCard'
 import { Icon } from './Icon'
 
 export function BusinessStatePanel({ state }: { state?: BusinessState }) {
-  if (!state) return <section className="emptyState"><span className="emptyIcon"><Icon name="activity" size={25}/></span><h2>Qualification en attente</h2><p>Les informations métier apparaîtront ici après le premier échange utile.</p><span className="waiting"><i/> En attente de conversation</span></section>
-  const progress = state.step.total ? Math.round(state.step.index / state.step.total * 100) : 0
-  return <div className="businessPanel"><section className="stateSection stateHeader"><div className="sectionHeading"><span className="iconBox green"><Icon name="activity"/></span><div><small>QUALIFICATION</small><h2>Analyse en direct</h2></div><span className="confidence">{Math.round(state.intent.confidence * 100)} % fiable</span></div><div className="servicePill">{state.service.replace('_',' ')}</div><blockquote>{state.intent.reformulation}</blockquote></section><section className="stateSection"><div className="sectionHeading"><span className="iconBox blue"><Icon name="file"/></span><div><small>PARCOURS MÉTIER</small><h2>{state.procedure.title ?? 'Procédure à identifier'}</h2></div></div><div className="progressMeta"><span>Étape {state.step.index} sur {state.step.total}</span><b>{progress}%</b></div><progress max="100" value={progress} aria-label={`Progression ${progress} %`}>{progress}%</progress><p className="stepLabel">{state.step.label ?? 'Qualification initiale'}</p>{state.next_question && <div className="nextQuestion"><small>PROCHAINE QUESTION SUGGÉRÉE</small><p>{state.next_question}</p></div>}</section><section className="stateSection fieldLists"><div><h3><Icon name="check" size={17}/> Recueilli</h3>{state.collected.length ? <ul>{state.collected.map(item => <li key={item.field}><b>{item.field}</b><span>{item.value}</span></li>)}</ul> : <p className="muted">Aucune information</p>}</div><div><h3><Icon name="alert" size={17}/> Manquant</h3>{state.missing.length ? <ul>{state.missing.map(item => <li key={item}>{item}</li>)}</ul> : <p className="muted">Dossier complet</p>}</div></section>{state.resolution.status !== 'none' && <section className="stateCard resolutionCard"><div className="cardTitle"><span className="iconBox green"><Icon name="check"/></span><div><small>RÉSOLUTION</small><h3>{state.resolution.status}</h3></div></div><p>{state.resolution.text}</p></section>}<EscalationCard escalation={state.escalation}/>{state.is_final && <section className="stateCard summaryCard"><div className="cardTitle"><span className="iconBox blue"><Icon name="file"/></span><div><small>FIN D’APPEL</small><h3>Résumé de l’appel</h3></div></div><p>{state.final_summary}</p><button className="copyButton" onClick={() => navigator.clipboard.writeText(state.final_summary ?? '')}><Icon name="copy" size={16}/> Copier le résumé</button></section>}</div>
+  if (!state)
+    return (
+      <section className="emptyState">
+        <span className="emptyIcon">
+          <Icon name="activity" size={25} />
+        </span>
+        <h2>Qualification en attente</h2>
+        <p>Les informations métier apparaîtront ici après le premier échange utile.</p>
+        <span className="waiting">
+          <i /> En attente de conversation
+        </span>
+      </section>
+    )
+  const progress = state.step.total ? Math.round((state.step.index / state.step.total) * 100) : 0
+  return (
+    <div className="businessPanel">
+      <section className="stateSection stateHeader">
+        <div className="sectionHeading">
+          <span className="iconBox green">
+            <Icon name="activity" />
+          </span>
+          <div>
+            <small>QUALIFICATION</small>
+            <h2>Analyse en direct</h2>
+          </div>
+          <span className="confidence">{Math.round(state.intent.confidence * 100)} % fiable</span>
+        </div>
+        <div className="servicePill">{state.service.replace('_', ' ')}</div>
+        <blockquote>{state.intent.reformulation}</blockquote>
+      </section>
+      <section className="stateSection">
+        <div className="sectionHeading">
+          <span className="iconBox blue">
+            <Icon name="file" />
+          </span>
+          <div>
+            <small>PARCOURS MÉTIER</small>
+            <h2>{state.procedure.title ?? 'Procédure à identifier'}</h2>
+          </div>
+        </div>
+        <div className="progressMeta">
+          <span>
+            Étape {state.step.index} sur {state.step.total}
+          </span>
+          <b>{progress}%</b>
+        </div>
+        <progress max="100" value={progress} aria-label={`Progression ${progress} %`}>
+          {progress}%
+        </progress>
+        <p className="stepLabel">{state.step.label ?? 'Qualification initiale'}</p>
+        {state.next_question && (
+          <div className="nextQuestion">
+            <small>PROCHAINE QUESTION SUGGÉRÉE</small>
+            <p>{state.next_question}</p>
+          </div>
+        )}
+      </section>
+      <section className="stateSection fieldLists">
+        <div>
+          <h3>
+            <Icon name="check" size={17} /> Recueilli
+          </h3>
+          {state.collected.length ? (
+            <ul>
+              {state.collected.map((item) => (
+                <li key={item.field}>
+                  <b>{item.field}</b>
+                  <span>{item.value}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="muted">Aucune information</p>
+          )}
+        </div>
+        <div>
+          <h3>
+            <Icon name="alert" size={17} /> Manquant
+          </h3>
+          {state.missing.length ? (
+            <ul>
+              {state.missing.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          ) : (
+            <p className="muted">Dossier complet</p>
+          )}
+        </div>
+      </section>
+      {state.resolution.status !== 'none' && (
+        <section className="stateCard resolutionCard">
+          <div className="cardTitle">
+            <span className="iconBox green">
+              <Icon name="check" />
+            </span>
+            <div>
+              <small>RÉSOLUTION</small>
+              <h3>{state.resolution.status}</h3>
+            </div>
+          </div>
+          <p>{state.resolution.text}</p>
+        </section>
+      )}
+      <EscalationCard escalation={state.escalation} />
+      {state.is_final && (
+        <section className="stateCard summaryCard">
+          <div className="cardTitle">
+            <span className="iconBox blue">
+              <Icon name="file" />
+            </span>
+            <div>
+              <small>FIN D’APPEL</small>
+              <h3>Résumé de l’appel</h3>
+            </div>
+          </div>
+          <p>{state.final_summary}</p>
+          <button
+            className="copyButton"
+            onClick={() => navigator.clipboard.writeText(state.final_summary ?? '')}
+          >
+            <Icon name="copy" size={16} /> Copier le résumé
+          </button>
+        </section>
+      )}
+    </div>
+  )
 }

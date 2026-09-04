@@ -1,3 +1,49 @@
 import { useQuery } from '@tanstack/react-query'
 import { api } from './api'
-export function CompliancePage(){const {data,isLoading}=useQuery({queryKey:['capabilities'],queryFn:api.capabilities});return <main className="compliance"><p className="kicker">GARDE-FOUS DU POC</p><h1>Conformité et fonctions autorisées</h1><p className="lead">Ce démonstrateur ne se connecte à aucun système ASACI et ne réalise aucune opération réelle.</p>{isLoading?<p>Chargement…</p>:<div className="cards"><section><h2>Garanties actives</h2><ul><li>Données fictives et anonymisées</li><li>Aucun paiement réel</li><li>Aucune action irréversible</li><li>Aucune connexion ASACI réelle</li></ul></section><section><h2>Fonctions futures prévues</h2><ul>{data?.authorized_future_functions.map(f=><li key={f.name}><b>{f.name}</b><br/><span>{f.description}</span></li>)}</ul></section><section><h2>Fonctions interdites</h2><ul>{data?.forbidden_functions.map(f=><li key={f}>{f}</li>)}</ul></section></div>}</main>}
+export function CompliancePage() {
+  const { data, isLoading } = useQuery({ queryKey: ['capabilities'], queryFn: api.capabilities })
+  return (
+    <main className="compliance">
+      <p className="kicker">GARDE-FOUS DU POC</p>
+      <h1>Conformité et fonctions autorisées</h1>
+      <p className="lead">
+        Ce démonstrateur ne se connecte à aucun système ASACI et ne réalise aucune opération réelle.
+      </p>
+      {isLoading ? (
+        <p>Chargement…</p>
+      ) : (
+        <div className="cards">
+          <section>
+            <h2>Garanties actives</h2>
+            <ul>
+              <li>Données fictives et anonymisées</li>
+              <li>Aucun paiement réel</li>
+              <li>Aucune action irréversible</li>
+              <li>Aucune connexion ASACI réelle</li>
+            </ul>
+          </section>
+          <section>
+            <h2>Fonctions futures prévues</h2>
+            <ul>
+              {data?.authorized_future_functions.map((f) => (
+                <li key={f.name}>
+                  <b>{f.name}</b>
+                  <br />
+                  <span>{f.description}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+          <section>
+            <h2>Fonctions interdites</h2>
+            <ul>
+              {data?.forbidden_functions.map((f) => (
+                <li key={f}>{f}</li>
+              ))}
+            </ul>
+          </section>
+        </div>
+      )}
+    </main>
+  )
+}

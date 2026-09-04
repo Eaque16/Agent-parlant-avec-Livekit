@@ -1,19 +1,29 @@
-import type { Capabilities, Conversation, Outcome, Procedure, RealtimeSession } from './types'
+import type { Capabilities, Conversation, Outcome, RealtimeSession } from './types/api'
 import type { BusinessState } from './types/businessState'
+
+const JSON_HEADERS = { 'Content-Type': 'application/json' }
 
 async function json<T>(response: Response): Promise<T> {
   const data = await response.json()
   if (!response.ok) throw new Error(data.detail ?? 'Service indisponible')
   return data as T
 }
+
+function post<T>(url: string, body: unknown): Promise<T> {
+  return fetch(url, { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify(body) }).then((r) =>
+    json<T>(r),
+  )
+}
+
 export const api = {
-  health: () => fetch('/health').then(r => json<{status:string; mode:string; demo_mode:boolean}>(r)),
-  procedures: () => fetch('/api/procedures').then(r => json<Procedure[]>(r)),
-  capabilities: () => fetch('/api/demo/capabilities').then(r => json<Capabilities>(r)),
-  createConversation: () => fetch('/api/conversations', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({channel:'web'}) }).then(r => json<Conversation>(r)),
-  conversation: (id:string) => fetch(`/api/conversations/${id}`).then(r => json<Conversation>(r)),
-  businessState: (id:string) => fetch(`/api/conversations/${id}/state`).then(r => r.status === 404 ? undefined : json<BusinessState>(r)),
-  realtimeToken: (conversationId:string) => fetch('/api/realtime/token', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({conversation_id:conversationId}) }).then(r => json<RealtimeSession>(r)),
-  sendMessage: (id:string, text:string) => fetch(`/api/conversations/${id}/messages`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({text}) }).then(r => json<Outcome>(r)),
-  sendAudio: (id:string, blob:Blob) => { const body=new FormData(); body.append('audio',blob,'appel.webm'); return fetch(`/api/conversations/${id}/audio`,{method:'POST',body}).then(r=>json<Outcome & {audio_base64?:string}>(r)) },
+  capabilities: () => fetch('/api/demo/capabilities').then((r) => json<Capabilities>(r)),
+  createConversation: () => post<Conversation>('/api/conversations', { channel: 'web' }),
+  conversation: (id: string) => fetch(`/api/conversations/${id}`).then((r) => json<Conversation>(r)),
+  businessState: (id: string) =>
+    fetch(`/api/conversations/${id}/state`).then((r) =>
+      r.status === 404 ? undefined : json<BusinessState>(r),
+    ),
+  realtimeToken: (conversationId: string) =>
+    post<RealtimeSession>('/api/realtime/token', { conversation_id: conversationId }),
+  sendMessage: (id: string, text: string) => post<Outcome>(`/api/conversations/${id}/messages`, { text }),
 }

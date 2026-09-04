@@ -1,6 +1,5 @@
 import json
 
-
 SYSTEM_PROMPT = """Tu es Awa, assistante virtuelle de service client ASACI en Côte d'Ivoire.
 
 RÈGLES ABSOLUES

@@ -1,34 +1,56 @@
 # Agent vocal conversationnel ASACI — POC
 
-POC cloud démontrable d’une assistante de service client francophone. Il fournit une interface web texte/voix, une API documentée, un connecteur téléphonique compatible TwiML, la transcription persistée des échanges et l’orientation vers un conseiller humain ou le support IT.
+Preuve de concept d'une assistante de service client francophone, « Awa ». Elle propose une console d'appel web (texte et voix), un worker vocal temps réel via LiveKit, un parcours téléphonique compatible TwiML, la persistance des échanges, un état métier structuré publié en direct et l'orientation vers un conseiller humain ou le support IT.
 
-> **Périmètre de sécurité :** ce POC utilise exclusivement des scénarios et données fictifs/anonymisés. Il ne se connecte à aucune plateforme ASACI, ne réalise aucun paiement et n'exécute aucune action irréversible.
+> **Périmètre de sécurité :** ce POC utilise exclusivement des scénarios et données fictifs ou anonymisés. Il ne se connecte à aucune plateforme ASACI, ne réalise aucun paiement et n'exécute aucune action irréversible.
 
-## Fournisseur vocal Gemini Live
+## Architecture
 
-Le worker utilise Gemini Live via LiveKit par défaut. Ajoutez uniquement dans `.env` :
-
-```env
-VOICE_PROVIDER=google
-GOOGLE_API_KEY=votre-cle-google-ai-studio
-GOOGLE_REALTIME_MODEL=gemini-2.5-flash-native-audio-preview-12-2025
-GOOGLE_REALTIME_VOICE=Puck
+```text
+Navigateur (React) ──HTTP/WS──▶ API FastAPI ──▶ SQLite (conversations, messages, états métier, audit)
+      │                              ▲
+      │ WebRTC (LiveKit Cloud)       │ canal interne authentifié
+      ▼                              │
+Worker LiveKit Agents ── Gemini Live (défaut) ou OpenAI Realtime
+Téléphone ──TwiML──▶ /telephony/* ──▶ API FastAPI
 ```
 
-Ne commitez jamais `.env`. Le mode historique reste disponible avec `VOICE_PROVIDER=openai`.
+```text
+app/                    API FastAPI
+  main.py               application, cycle de vie, interface React compilée
+  config.py             réglages lus depuis l'environnement
+  database.py           persistance SQLite et rétention
+  catalog.py            catalogue des procédures autorisées
+  integrations.py       frontière des futures intégrations (simulées)
+  realtime.py           jetons LiveKit éphémères
+  api/                  routeurs : system, conversations, business_state, internal, admin, telephony, ws
+  schemas/              contrats Pydantic (requêtes, état métier)
+  services/             IA, tour de conversation, état métier, filtrage PII, files simulées
+  static/               bundle React compilé (généré par `npm run build`)
+agent/                  Worker vocal LiveKit Agents
+  worker.py             point d'entrée, choix du fournisseur vocal
+  config.py             réglages du worker
+  state_publisher.py    publication des états vers la room et le backend
+  prompts/              prompt système d'Awa
+  tools/                outils métier appelables par le modèle
+frontend/               Application React + Vite + TypeScript
+tests/                  pytest (API, état métier, outils du worker)
+docs/                   scénarios de démonstration et rapport technique
+```
 
-## Démonstration rapide
+## Démarrage rapide
 
-Prérequis : Python 3.11+.
+Prérequis : Python 3.11+, Node.js 22 (pour modifier le frontend).
 
 ```powershell
 python -m venv .venv
 .venv\Scripts\Activate.ps1
 pip install -r requirements-dev.txt
+copy .env.example .env
 uvicorn app.main:app --reload
 ```
 
-Ouvrir <http://localhost:8000>. Le mode texte fonctionne immédiatement, sans service externe. Essayer :
+Ouvrir <http://localhost:8000>. Le mode texte fonctionne sans aucun service externe grâce à un moteur déterministe. Essayer :
 
 - « Je souhaite adhérer » pour un guidage métier ;
 - « Mon portail affiche une erreur » pour une orientation IT ;
@@ -36,9 +58,17 @@ Ouvrir <http://localhost:8000>. Le mode texte fonctionne immédiatement, sans se
 
 La documentation interactive est disponible sur <http://localhost:8000/docs>.
 
-### Développement du frontend imposé
+### Worker vocal (voix-à-voix)
 
-Le frontend se trouve dans `frontend/` et utilise React, Vite, TypeScript, React Router, TanStack Query, Tailwind CSS et les composants LiveKit.
+Le worker rejoint la room LiveKit de chaque conversation et dialogue en français avec Gemini Live par défaut. Renseigner dans `.env` : `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `GOOGLE_API_KEY`, `AGENT_INTERNAL_API_KEY` et `INTERNAL_API_KEY`.
+
+```powershell
+python -m agent.worker dev
+```
+
+`VOICE_PROVIDER=openai` bascule sur OpenAI Realtime (nécessite `OPENAI_API_KEY`).
+
+### Frontend
 
 ```powershell
 cd frontend
@@ -46,82 +76,79 @@ npm install
 npm run dev
 ```
 
-Vite écoute sur <http://localhost:5173> et transfère `/api` et `/health` vers FastAPI sur le port 8000. `npm run build` compile directement l'interface dans `app/static/` pour le déploiement monolithique.
+Vite écoute sur <http://localhost:5173> et transfère `/api`, `/health` et `/ws` vers FastAPI. `npm run build` compile l'interface dans `app/static/`, qui est versionné pour le déploiement monolithique.
 
-LiveKit reste déconnecté tant que le backend ne dispose pas de `LIVEKIT_URL`, `LIVEKIT_API_KEY` et `LIVEKIT_API_SECRET`. Au démarrage d'un appel, React demande `POST /api/realtime/token` : FastAPI retourne un jeton éphémère, une identité anonymisée et une room dérivée de la conversation. Le secret LiveKit ne quitte jamais le backend et aucun jeton permanent n'est intégré au bundle.
-
-Le jeton expire après 300 secondes par défaut (`LIVEKIT_TOKEN_TTL_SECONDS`) et ne permet de rejoindre que la room indiquée. Le navigateur y publie son microphone en WebRTC et restitue les pistes audio distantes avec `RoomAudioRenderer`.
-
-### Agent vocal voix-à-voix
-
-Le worker `agent.worker` rejoint les rooms LiveKit Cloud et utilise OpenAI Realtime directement pour l'audio entrant et sortant. Il parle en français, accepte les interruptions et applique le périmètre fictif du POC.
-
-```powershell
-pip install -r requirements-agent.txt
-python -m agent.worker dev
-```
-
-En conteneur, `docker compose up --build` démarre l'API web et le worker vocal. Les variables requises sont `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` et `OPENAI_API_KEY`.
-
-Les transcriptions finales de l'appelant, réponses de l'agent et erreurs de session sont renvoyées vers FastAPI et rattachées à la conversation. Ce canal interne exige `AGENT_INTERNAL_API_KEY`; la valeur doit être longue, aléatoire et identique pour l'API et le worker.
-
-## Activer la voix IA
-
-Copier `.env.example` vers `.env`, définir `OPENAI_API_KEY`, puis charger les variables ou lancer :
+### Conteneurs
 
 ```powershell
 docker compose up --build
 ```
 
-Sans clé, le POC reste volontairement utilisable en texte avec un moteur déterministe. Avec une clé, les fichiers micro sont transcrits, la réponse est produite selon le prompt métier et restituée vocalement.
+Démarre l'API et le worker vocal. Les variables sont lues depuis `.env`.
 
-## Parcours téléphonique
+## Configuration
 
-Configurer le webhook d’appel entrant du fournisseur téléphonique vers `POST /telephony/incoming` et renseigner `PUBLIC_BASE_URL` avec l’URL HTTPS publique. Le flux TwiML utilise la reconnaissance vocale du fournisseur, conserve chaque tour dans la même conversation et déclenche les escalades.
+| Variable | Rôle |
+| --- | --- |
+| `DATABASE_PATH`, `RETENTION_DAYS` | Base SQLite et durée de conservation |
+| `PUBLIC_BASE_URL` | URL publique utilisée par les webhooks téléphoniques |
+| `ADMIN_API_KEY` | En-tête `X-Admin-Key` des routes `/api/admin/*` |
+| `AGENT_INTERNAL_API_KEY` | En-tête `X-Agent-Key` : le worker renvoie transcriptions et réponses |
+| `INTERNAL_API_KEY` | En-tête `X-Internal-Key` : le worker publie les états métier |
+| `VOICE_PROVIDER`, `GOOGLE_*`, `OPENAI_REALTIME_*` | Fournisseur vocal du worker |
+| `LIVEKIT_*` | Accès LiveKit Cloud et durée de vie des jetons |
+| `OPENAI_API_KEY`, `OPENAI_CHAT_MODEL`, `OPENAI_TRANSCRIBE_MODEL`, `OPENAI_TTS_*` | Canal texte et audio du navigateur (optionnel) |
+| `DEMO_MODE`, `INTEGRATIONS_ENABLED` | Garde-fous : intégrations simulées uniquement |
 
-Pour un POC exposé depuis un poste local, utiliser un tunnel HTTPS de votre choix vers le port 8000. En production, valider impérativement la signature des webhooks du fournisseur.
+Les canaux internes refusent toute requête tant que leur clé n'est pas configurée. Ne commitez jamais `.env`.
 
-## Architecture
+## API
 
-```text
-Navigateur / Téléphone
-        │
-        ▼
-API FastAPI ── orchestration métier ── OpenAI (STT, réponse, TTS)
-        │                   │
-        │                   └── règles d’escalade humain / IT
-        ▼
-SQLite (POC) : conversations, messages, audit
-```
+| Route | Usage |
+| --- | --- |
+| `GET /health` | État du service et fournisseur actif |
+| `GET /api/procedures` | Catalogue des procédures autorisées |
+| `GET /api/demo/capabilities` | Garde-fous et fonctions futures |
+| `POST /api/conversations` | Créer une conversation |
+| `GET /api/conversations/{id}` | Lire une conversation et ses messages |
+| `POST /api/conversations/{id}/messages` | Envoyer un message texte |
+| `POST /api/conversations/{id}/audio` | Envoyer un enregistrement (nécessite OpenAI) |
+| `GET /api/conversations/{id}/state` et `/state/history` | État métier courant et historique |
+| `WS /ws/conversations/{id}` | Diffusion temps réel des états métier |
+| `GET /api/queues` | Files d'escalade simulées |
+| `POST /api/realtime/token` | Jeton LiveKit éphémère limité à une room |
+| `GET /api/admin/conversations`, `POST /api/admin/retention/purge` | Back-office |
+| `POST /telephony/incoming`, `POST /telephony/turn/{id}` | Webhooks TwiML |
 
-- `app/main.py` : contrats HTTP, interface téléphonique et sécurité d’administration.
-- `app/services.py` : adaptateur IA et moteur local de démonstration.
-- `app/prompt.py` : comportement conversationnel et procédures ASACI.
-- `app/database.py` : conservation, audit et politique de rétention.
-- `frontend/` : application React/Vite TypeScript et intégration LiveKit optionnelle.
-- `app/static/` : artefacts compilés servis par FastAPI.
+Le worker utilise deux routes internes hors documentation : `/api/internal/conversations/{id}/agent-events` et `/internal/conversations/{id}/state`.
 
-## Exploitation et sécurité
-
-- Les numéros d’appelant ne sont conservés que sous forme des quatre derniers caractères dans ce POC.
-- `RETENTION_DAYS` contrôle la rétention ; `POST /api/admin/retention/purge` exécute la purge.
-- Les routes `/api/admin/*` exigent l’en-tête `X-Admin-Key`.
-- Les secrets restent dans l’environnement et ne sont jamais stockés en base.
-- Pour la production : PostgreSQL managé, chiffrement au repos, coffre de secrets, validation des signatures téléphoniques, authentification SSO du back-office, métriques et journalisation sans données personnelles.
-- L’image Docker s’exécute avec un utilisateur non privilégié et expose un contrôle de santé.
-- `DEMO_MODE=true` verrouille les intégrations sur des réponses fictives.
-- `app/integrations.py` est l'unique frontière prévue pour les futures APIs sécurisées.
-- Les fonctions futures sont en liste blanche, réversibles et soumises à approbation humaine si nécessaire.
-- Paiements, remboursements financiers, suppressions, clôtures et validations de prestations sont interdits.
-
-## Tests
+## Qualité
 
 ```powershell
-pytest -q
+pytest                       # 31 tests, base temporaire isolée, .env ignoré
+ruff check app agent tests   # lint
+ruff format app agent tests  # formatage
+cd frontend
+npm run typecheck
+npm test
+npm run format:check
 ```
 
-Les tests couvrent la persistance d’une conversation et les deux circuits d’escalade.
+## Sécurité et exploitation
 
-## Limites assumées du POC
+- Les numéros d'appelant ne sont conservés que sous forme des quatre derniers caractères.
+- Les données sensibles (carte, IBAN, cryptogramme, mot de passe) sont refusées ou masquées avant persistance, avec trace d'audit.
+- Les clés sont comparées en temps constant ; les secrets restent dans l'environnement.
+- Le jeton LiveKit expire après 300 secondes par défaut et ne permet de rejoindre qu'une seule room.
+- `DEMO_MODE=true` verrouille les intégrations sur des réponses fictives ; les paiements, remboursements, suppressions et validations sont interdits.
+- L'image Docker s'exécute avec un utilisateur non privilégié et expose un contrôle de santé.
+- Pour la production : PostgreSQL managé, coffre de secrets, validation des signatures téléphoniques, SSO du back-office, observabilité sans données personnelles.
 
-Les procédures incluses sont des exemples à faire valider par les responsables métier ASACI. L’escalade crée un état et un événement d’audit ; le branchement réel vers un CRM, une file de conseillers ou un outil ITSM se fait derrière cet événement. Le navigateur emploie la synthèse locale en mode démo et la voix OpenAI lorsque la clé est configurée.
+## Documentation
+
+- [docs/scenarios.md](docs/scenarios.md) : scénarios de démonstration.
+- [docs/rapport-technique.txt](docs/rapport-technique.txt) : rapport technique et pédagogique.
+
+## Limites assumées
+
+Les procédures incluses sont des exemples à faire valider par les responsables métier ASACI. L'escalade crée un état, un ticket fictif et un événement d'audit ; le branchement réel vers un CRM, une file de conseillers ou un outil ITSM se fait derrière cet événement.
