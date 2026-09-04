@@ -6,6 +6,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from .config import settings
+from .models.business_state import BUSINESS_STATE_TABLES
 
 
 def utcnow() -> str:
@@ -32,6 +33,7 @@ def init_db() -> None:
           event_type TEXT NOT NULL, payload TEXT NOT NULL, created_at TEXT NOT NULL
         );
         """)
+        db.executescript(BUSINESS_STATE_TABLES)
 
 
 @contextmanager
@@ -97,6 +99,10 @@ def purge_expired() -> int:
     with connection() as db:
         ids = [r[0] for r in db.execute("SELECT id FROM conversations WHERE created_at < ?", (cutoff,))]
         for cid in ids:
+            db.execute("DELETE FROM business_state_history WHERE conversation_id=?", (cid,))
+            db.execute("DELETE FROM business_states WHERE conversation_id=?", (cid,))
+            db.execute("DELETE FROM business_audit_events WHERE conversation_id=?", (cid,))
+            db.execute("DELETE FROM escalation_tickets WHERE conversation_id=?", (cid,))
             db.execute("DELETE FROM messages WHERE conversation_id=?", (cid,))
             db.execute("DELETE FROM audit_events WHERE conversation_id=?", (cid,))
             db.execute("DELETE FROM conversations WHERE id=?", (cid,))
