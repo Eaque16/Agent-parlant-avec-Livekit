@@ -3,12 +3,17 @@ import os
 import asyncio
 
 import aiohttp
+from dotenv import load_dotenv
 
 from livekit import agents
 from livekit.agents import Agent, AgentSession
 from livekit.plugins import openai
 
-from .prompt import VOICE_AGENT_PROMPT
+from .prompts.asaci_agent_fr import build_instructions
+from .state_publisher import StatePublisher
+from .tools.business_tools import BusinessStateTracker, create_business_tools
+
+load_dotenv()
 
 logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
 logger = logging.getLogger("asaci-voice-agent")
@@ -36,9 +41,17 @@ async def _persist_event(conversation_id: str, role: str, content: str, event_ty
         logger.exception("Échec de conservation de l'événement vocal")
 
 
+async def _load_procedures() -> list[dict]:
+    url = os.getenv("AGENT_API_BASE_URL", "http://localhost:8000").rstrip("/") + "/api/procedures"
+    async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=5)) as client:
+        async with client.get(url) as response:
+            response.raise_for_status()
+            return await response.json()
+
+
 class AsaciVoiceAgent(Agent):
-    def __init__(self) -> None:
-        super().__init__(instructions=VOICE_AGENT_PROMPT)
+    def __init__(self, instructions: str, tools: list) -> None:
+        super().__init__(instructions=instructions, tools=tools)
 
 
 async def entrypoint(ctx: agents.JobContext) -> None:
@@ -50,11 +63,20 @@ async def entrypoint(ctx: agents.JobContext) -> None:
         )
     )
     conversation_id = _conversation_id(ctx.room.name)
+    if not conversation_id:
+        raise RuntimeError("Room non reconnue : conversation introuvable")
+    procedures = await _load_procedures()
+    publisher = StatePublisher(ctx.room, conversation_id)
+    tracker = BusinessStateTracker(conversation_id)
+    tools = create_business_tools(tracker, publisher, procedures)
 
     @session.on("user_input_transcribed")
     def on_user_transcript(event) -> None:
-        if conversation_id and event.is_final and event.transcript.strip():
-            asyncio.create_task(_persist_event(conversation_id, "user", event.transcript.strip(), "transcript"))
+        transcript = event.transcript.strip()
+        if transcript and event.is_final:
+            asyncio.create_task(_persist_event(conversation_id, "user", transcript, "transcript"))
+        elif transcript:
+            asyncio.create_task(publisher.publish_partial_transcript(transcript))
 
     @session.on("conversation_item_added")
     def on_conversation_item(event) -> None:
@@ -68,7 +90,7 @@ async def entrypoint(ctx: agents.JobContext) -> None:
     def on_error(event) -> None:
         if conversation_id:
             asyncio.create_task(_persist_event(conversation_id, "system", str(event.error), "error"))
-    await session.start(room=ctx.room, agent=AsaciVoiceAgent())
+    await session.start(room=ctx.room, agent=AsaciVoiceAgent(build_instructions(procedures), tools))
     await session.generate_reply(
         instructions="Accueille l'appelant en français et rappelle en une phrase qu'il s'agit d'une démonstration fictive."
     )
