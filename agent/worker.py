@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 
 from livekit import agents
 from livekit.agents import Agent, AgentSession
-from livekit.plugins import openai
+from livekit.plugins import google, openai
 
 from .prompts.asaci_agent_fr import build_instructions
 from .state_publisher import StatePublisher
@@ -56,12 +56,22 @@ class AsaciVoiceAgent(Agent):
 
 async def entrypoint(ctx: agents.JobContext) -> None:
     logger.info("Démarrage de l'agent pour la room %s", ctx.room.name)
-    session = AgentSession(
-        llm=openai.realtime.RealtimeModel(
+    provider = os.getenv("VOICE_PROVIDER", "google").lower()
+    if provider == "google":
+        if not os.getenv("GOOGLE_API_KEY"):
+            raise RuntimeError("GOOGLE_API_KEY absente : ajoutez-la dans .env")
+        realtime_model = google.realtime.RealtimeModel(
+            model=os.getenv("GOOGLE_REALTIME_MODEL", "gemini-2.5-flash-native-audio-preview-12-2025"),
+            voice=os.getenv("GOOGLE_REALTIME_VOICE", "Puck"),
+        )
+    elif provider == "openai":
+        realtime_model = openai.realtime.RealtimeModel(
             model=os.getenv("OPENAI_REALTIME_MODEL", "gpt-realtime"),
             voice=os.getenv("OPENAI_REALTIME_VOICE", "coral"),
         )
-    )
+    else:
+        raise RuntimeError(f"VOICE_PROVIDER non pris en charge : {provider}")
+    session = AgentSession(llm=realtime_model)
     conversation_id = _conversation_id(ctx.room.name)
     if not conversation_id:
         raise RuntimeError("Room non reconnue : conversation introuvable")

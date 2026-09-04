@@ -4,6 +4,19 @@ POC cloud démontrable d’une assistante de service client francophone. Il four
 
 > **Périmètre de sécurité :** ce POC utilise exclusivement des scénarios et données fictifs/anonymisés. Il ne se connecte à aucune plateforme ASACI, ne réalise aucun paiement et n'exécute aucune action irréversible.
 
+## Fournisseur vocal Gemini Live
+
+Le worker utilise Gemini Live via LiveKit par défaut. Ajoutez uniquement dans `.env` :
+
+```env
+VOICE_PROVIDER=google
+GOOGLE_API_KEY=votre-cle-google-ai-studio
+GOOGLE_REALTIME_MODEL=gemini-2.5-flash-native-audio-preview-12-2025
+GOOGLE_REALTIME_VOICE=Puck
+```
+
+Ne commitez jamais `.env`. Le mode historique reste disponible avec `VOICE_PROVIDER=openai`.
+
 ## Démonstration rapide
 
 Prérequis : Python 3.11+.

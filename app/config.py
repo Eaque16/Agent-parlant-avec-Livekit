@@ -13,6 +13,8 @@ class Settings:
     database_path: str = os.getenv("DATABASE_PATH", "./data/asaci.db")
     public_base_url: str = os.getenv("PUBLIC_BASE_URL", "http://localhost:8000").rstrip("/")
     openai_api_key: str | None = os.getenv("OPENAI_API_KEY") or None
+    google_api_key: str | None = os.getenv("GOOGLE_API_KEY") or None
+    voice_provider: str = os.getenv("VOICE_PROVIDER", "google")
     chat_model: str = os.getenv("OPENAI_CHAT_MODEL", "gpt-4.1-mini")
     transcribe_model: str = os.getenv("OPENAI_TRANSCRIBE_MODEL", "gpt-4o-mini-transcribe")
     tts_model: str = os.getenv("OPENAI_TTS_MODEL", "gpt-4o-mini-tts")

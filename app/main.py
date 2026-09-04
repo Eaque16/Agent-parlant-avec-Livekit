@@ -66,7 +66,9 @@ def compliance_page():
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "mode": "openai" if settings.openai_api_key else "demo", "demo_mode": settings.demo_mode, "integrations_enabled": False}
+    provider_ready = settings.google_api_key if settings.voice_provider == "google" else settings.openai_api_key
+    return {"status": "ok", "mode": settings.voice_provider if provider_ready else "demo", "voice_provider": settings.voice_provider,
+            "demo_mode": settings.demo_mode, "integrations_enabled": False}
 
 
 @app.get("/api/procedures")
