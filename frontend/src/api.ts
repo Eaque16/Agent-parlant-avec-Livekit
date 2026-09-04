@@ -1,4 +1,5 @@
 import type { Capabilities, Conversation, Outcome, Procedure, RealtimeSession } from './types'
+import type { BusinessState } from './types/businessState'
 
 async function json<T>(response: Response): Promise<T> {
   const data = await response.json()
@@ -11,6 +12,7 @@ export const api = {
   capabilities: () => fetch('/api/demo/capabilities').then(r => json<Capabilities>(r)),
   createConversation: () => fetch('/api/conversations', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({channel:'web'}) }).then(r => json<Conversation>(r)),
   conversation: (id:string) => fetch(`/api/conversations/${id}`).then(r => json<Conversation>(r)),
+  businessState: (id:string) => fetch(`/api/conversations/${id}/state`).then(r => r.status === 404 ? undefined : json<BusinessState>(r)),
   realtimeToken: (conversationId:string) => fetch('/api/realtime/token', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({conversation_id:conversationId}) }).then(r => json<RealtimeSession>(r)),
   sendMessage: (id:string, text:string) => fetch(`/api/conversations/${id}/messages`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({text}) }).then(r => json<Outcome>(r)),
   sendAudio: (id:string, blob:Blob) => { const body=new FormData(); body.append('audio',blob,'appel.webm'); return fetch(`/api/conversations/${id}/audio`,{method:'POST',body}).then(r=>json<Outcome & {audio_base64?:string}>(r)) },
