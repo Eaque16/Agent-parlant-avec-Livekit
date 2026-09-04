@@ -28,6 +28,7 @@ class Settings:
     livekit_api_secret: str | None = os.getenv("LIVEKIT_API_SECRET") or None
     livekit_token_ttl_seconds: int = min(int(os.getenv("LIVEKIT_TOKEN_TTL_SECONDS", "300")), 600)
     agent_internal_api_key: str | None = os.getenv("AGENT_INTERNAL_API_KEY") or None
+    internal_api_key: str | None = os.getenv("INTERNAL_API_KEY") or None
 
 
 settings = Settings()

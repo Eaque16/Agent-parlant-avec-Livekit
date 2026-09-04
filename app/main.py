@@ -12,6 +12,9 @@ from .config import settings
 from .services import answer, synthesize, transcribe
 from .integrations import AUTHORIZED_FUNCTIONS, FORBIDDEN_FUNCTIONS
 from .realtime import create_livekit_token
+from .api.business_state import router as business_state_router
+from .api.ws import router as websocket_router
+from .catalog import PROCEDURES
 
 
 @asynccontextmanager
@@ -22,6 +25,8 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title="Agent vocal ASACI", version="0.1.0", lifespan=lifespan)
+app.include_router(business_state_router)
+app.include_router(websocket_router)
 app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
 
 
@@ -42,15 +47,6 @@ class AgentEventCreate(BaseModel):
     role: str = Field(pattern="^(user|assistant|system)$")
     content: str = Field(min_length=1, max_length=8000)
     event_type: str = Field(pattern="^(transcript|agent_reply|error)$")
-
-
-PROCEDURES = [
-    {"service": "Adhésion", "name": "Qualification d'une adhésion", "steps": ["Identifier le type de demande", "Vérifier les informations nécessaires", "Orienter vers le guichet adhésion"]},
-    {"service": "Cotisations", "name": "Vérification d'une cotisation", "steps": ["Identifier la période", "Recueillir une référence non sensible", "Proposer le canal de régularisation"]},
-    {"service": "Prestations", "name": "Suivi d'une prestation", "steps": ["Identifier la prestation", "Qualifier son statut", "Informer ou transmettre au gestionnaire"]},
-    {"service": "Réclamations", "name": "Qualification d'une réclamation", "steps": ["Reformuler la difficulté", "Conserver le contexte utile", "Escalader vers un conseiller"]},
-    {"service": "Support IT", "name": "Diagnostic et transfert IT", "steps": ["Qualifier l'incident", "Conserver le message d'erreur", "Créer une escalade IT"]},
-]
 
 
 def require_admin(x_admin_key: str = Header(default="")) -> None:
