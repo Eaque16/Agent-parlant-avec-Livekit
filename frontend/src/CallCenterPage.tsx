@@ -1,22 +1,11 @@
-import { FormEvent, useEffect, useRef, useState } from 'react'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { FormEvent, useEffect, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { api } from './api'
 import type { Message } from './types/api'
 import { useRealtimeRoom } from './LiveKitVoice'
 import { useBusinessState } from './hooks/useBusinessState'
 import { BusinessStatePanel } from './components/BusinessStatePanel'
 import { Icon } from './components/Icon'
-
-type SpeechRecognitionLike = {
-  lang: string
-  continuous: boolean
-  interimResults: boolean
-  start(): void
-  stop(): void
-  onresult: ((e: any) => void) | null
-  onend: (() => void) | null
-  onerror: ((e: any) => void) | null
-}
 
 export function CallCenterPage() {
   const [id, setId] = useState(''),
@@ -29,14 +18,13 @@ export function CallCenterPage() {
     [live, setLive] = useState('Prête à vous écouter.'),
     [active, setActive] = useState(false),
     [text, setText] = useState('')
-  const recognition = useRef<SpeechRecognitionLike | null>(null),
-    realtime = useRealtimeRoom(),
+  const realtime = useRealtimeRoom(),
     business = useBusinessState(id)
   const { data: storedConversation } = useQuery({
     queryKey: ['conversation', id],
     queryFn: () => api.conversation(id),
     enabled: !!id,
-    refetchInterval: active ? 5000 : false,
+    refetchInterval: active ? 1000 : false,
   })
   useEffect(() => {
     api.createConversation().then((c) => setId(c.id))
@@ -44,28 +32,21 @@ export function CallCenterPage() {
   useEffect(() => {
     if (active && storedConversation?.messages.length) setMessages(storedConversation.messages)
   }, [active, storedConversation])
-  const send = useMutation({
-    mutationFn: (value: string) => api.sendMessage(id, value),
-    onMutate: (value) => setMessages((m) => [...m, { role: 'user', content: value }]),
-    onSuccess: (data) => {
-      setMessages((m) => [...m, { role: 'assistant', content: data.reply }])
-      const speech = new SpeechSynthesisUtterance(data.reply)
-      speech.lang = 'fr-FR'
-      window.speechSynthesis.cancel()
-      window.speechSynthesis.speak(speech)
-    },
-  })
-  const submit = (e: FormEvent) => {
+  const submit = async (e: FormEvent) => {
     e.preventDefault()
-    if (text.trim() && id) {
-      send.mutate(text.trim())
-      setLive(text.trim())
+    const value = text.trim()
+    if (!value || !id) return
+    try {
+      await realtime.sendText(value)
+      setMessages((current) => [...current, { role: 'user', content: value }])
+      setLive('Message transmis à Awa.')
       setText('')
+    } catch (error) {
+      setLive(error instanceof Error ? error.message : 'Message non transmis.')
     }
   }
   const toggle = async () => {
     if (active) {
-      recognition.current?.stop()
       realtime.disconnect()
       setActive(false)
       setLive('Appel mis en pause.')
@@ -77,29 +58,6 @@ export function CallCenterPage() {
       setLive(e instanceof Error ? e.message : 'LiveKit Cloud indisponible')
       return
     }
-    const Ctor = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
-    if (!Ctor) {
-      setLive('Room LiveKit ouverte. Je vous écoute…')
-      setActive(true)
-      return
-    }
-    const r: SpeechRecognitionLike = new Ctor()
-    r.lang = 'fr-FR'
-    r.continuous = true
-    r.interimResults = true
-    r.onresult = (event: any) => {
-      let interim = '',
-        final = ''
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        if (event.results[i].isFinal) final += event.results[i][0].transcript
-        else interim += event.results[i][0].transcript
-      }
-      setLive(interim || final || 'Je vous écoute…')
-    }
-    r.onend = () => setActive(false)
-    r.onerror = (e) => setLive(`Microphone : ${e.error}`)
-    recognition.current = r
-    r.start()
     setActive(true)
     setLive('Connexion sécurisée en cours…')
   }
@@ -186,9 +144,9 @@ export function CallCenterPage() {
               aria-label="Message"
               value={text}
               onChange={(e) => setText(e.target.value)}
-              placeholder="Écrire un message de démonstration…"
+              placeholder={realtime.connected ? 'Écrire à Awa dans cette conversation…' : 'Démarrez l’appel pour écrire à Awa…'}
             />
-            <button disabled={!id || send.isPending} aria-label="Envoyer">
+            <button disabled={!id || !realtime.connected} aria-label="Envoyer">
               Envoyer <span>→</span>
             </button>
           </form>

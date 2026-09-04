@@ -1,6 +1,7 @@
 """Worker LiveKit Agents : voix-à-voix en français avec Gemini Live ou OpenAI Realtime."""
 
 import asyncio
+import json
 import logging
 
 import aiohttp
@@ -97,6 +98,21 @@ async def entrypoint(ctx: agents.JobContext) -> None:
     @session.on("error")
     def on_error(event) -> None:
         _spawn(_persist_event(conversation_id, "system", str(event.error), "error"))
+
+    @ctx.room.on("data_received")
+    def on_data_received(packet) -> None:
+        if packet.topic != "chat_message":
+            return
+        try:
+            value = json.loads(packet.data.decode("utf-8"))
+            text = str(value.get("text", "")).strip()[:4000]
+        except (UnicodeDecodeError, json.JSONDecodeError, AttributeError):
+            logger.warning("Message texte LiveKit invalide ignoré")
+            return
+        if not text:
+            return
+        _spawn(_persist_event(conversation_id, "user", text, "transcript"))
+        session.generate_reply(user_input=text, allow_interruptions=True)
 
     await session.start(room=ctx.room, agent=Agent(instructions=build_instructions(procedures), tools=tools))
     await session.generate_reply(instructions=GREETING_INSTRUCTIONS)

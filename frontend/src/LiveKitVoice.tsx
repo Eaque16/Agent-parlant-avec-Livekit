@@ -8,6 +8,7 @@ import type { RealtimeSession } from './types/api'
 type RealtimeContextValue = {
   connect: (id: string) => Promise<void>
   disconnect: () => void
+  sendText: (text: string) => Promise<void>
   session?: RealtimeSession
   connected: boolean
   room: Room
@@ -31,8 +32,16 @@ export function LiveKitVoice({ children }: { children: React.ReactNode }) {
       room,
       connect: async (id: string) => setSession(await api.realtimeToken(id)),
       disconnect: () => {
+        void room.disconnect()
         setSession(undefined)
         setConnected(false)
+      },
+      sendText: async (text: string) => {
+        if (!connected) throw new Error('Démarrez l’appel avant d’envoyer un message.')
+        await room.localParticipant.publishData(
+          new TextEncoder().encode(JSON.stringify({ text })),
+          { reliable: true, topic: 'chat_message' },
+        )
       },
     }),
     [session, connected, room],
