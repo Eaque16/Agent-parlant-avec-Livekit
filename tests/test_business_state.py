@@ -74,6 +74,9 @@ def test_internal_state_auth_idempotence_history_and_unknown_procedure():
             assert unknown.status_code == 200
             assert unknown.json()["procedure"]["id"] is None
             assert unknown.json()["procedure_known"] is False
+            decreasing = _post_state(client, cid, version=1)
+            assert decreasing.status_code == 200
+            assert decreasing.json()["state_version"] == 2
             history = client.get(f"/api/conversations/{cid}/state/history").json()
             assert [item["state_version"] for item in history] == [1, 2]
     finally:
@@ -110,5 +113,44 @@ def test_escalation_reuses_one_simulated_ticket():
             assert first["escalation"]["ticket_id"] == second["escalation"]["ticket_id"]
             tickets = client.get("/api/queues").json()["conseiller"]
             assert len([ticket for ticket in tickets if ticket["conversation_id"] == cid]) == 1
+    finally:
+        object.__setattr__(settings, "internal_api_key", original)
+
+
+def test_internal_endpoint_fails_closed_when_key_is_not_configured():
+    original = settings.internal_api_key
+    object.__setattr__(settings, "internal_api_key", None)
+    try:
+        with TestClient(app) as client:
+            cid = client.post("/api/conversations", json={"channel": "web"}).json()["id"]
+            assert client.post(f"/internal/conversations/{cid}/state", json=valid_state(conversation_id=cid)).status_code == 503
+    finally:
+        object.__setattr__(settings, "internal_api_key", original)
+
+
+def test_api_rejects_incoherent_escalation_and_final_state():
+    original = settings.internal_api_key
+    object.__setattr__(settings, "internal_api_key", "test-internal")
+    try:
+        with TestClient(app) as client:
+            cid = client.post("/api/conversations", json={"channel": "web"}).json()["id"]
+            invalid_escalation = valid_state(conversation_id=cid, escalation={"required": True, "type": "conseiller", "reason": None})
+            assert client.post(f"/internal/conversations/{cid}/state", json=invalid_escalation, headers={"X-Internal-Key":"test-internal"}).status_code == 422
+            invalid_final = valid_state(conversation_id=cid, is_final=True, final_summary=None)
+            assert client.post(f"/internal/conversations/{cid}/state", json=invalid_final, headers={"X-Internal-Key":"test-internal"}).status_code == 422
+    finally:
+        object.__setattr__(settings, "internal_api_key", original)
+
+
+def test_ivorian_registration_is_kept_by_backend():
+    original = settings.internal_api_key
+    object.__setattr__(settings, "internal_api_key", "test-internal")
+    try:
+        with TestClient(app) as client:
+            cid = client.post("/api/conversations", json={"channel": "web"}).json()["id"]
+            registration = [{"field":"immatriculation","value":"CI-01-234567890123","source":"caller","at":"2026-09-03T12:00:00Z"}]
+            result = _post_state(client, cid, collected=registration).json()
+            assert result["collected"][0]["value"] == "CI-01-234567890123"
+            assert result["rejected_fields"] == []
     finally:
         object.__setattr__(settings, "internal_api_key", original)

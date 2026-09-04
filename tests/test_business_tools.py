@@ -4,6 +4,10 @@ from uuid import uuid4
 
 from agent.prompts.asaci_agent_fr import build_instructions
 from agent.tools.business_tools import BusinessStateTracker, create_business_tools
+from app.schemas.business_state import BusinessState
+from app.services.business_state_service import save_business_state
+from app.main import app
+from fastapi.testclient import TestClient
 
 
 class FakePublisher:
@@ -48,3 +52,24 @@ def test_prompt_contains_catalogue_from_backend():
     assert "adhesion-qualification" in instructions
     assert "une question à la fois" in instructions
     assert "aucune opération réelle" in instructions
+
+
+def test_complete_adhesion_call_crosses_tools_schema_service_and_database():
+    class ServicePublisher:
+        def __init__(self, cid): self.cid, self.last = cid, None
+        async def publish_state(self, state):
+            canonical, _ = save_business_state(self.cid, BusinessState.model_validate(state))
+            self.last = canonical.model_dump(mode="json")
+            return {"livekit_ok": True, "backend": {"ok": True, "state": self.last}}
+    with TestClient(app) as client:
+        cid = client.post('/api/conversations', json={'channel':'web'}).json()['id']
+        tracker, publisher = BusinessStateTracker(cid), ServicePublisher(cid)
+        tools = tools_by_name(tracker, publisher)
+        asyncio.run(tools['lookup_procedure']('adhesion', 'adhesion'))
+        asyncio.run(tools['set_business_state']('adhesion', 'nouvelle_adhesion', .95, 'Vous souhaitez effectuer une nouvelle adhésion.', 'S’agit-il de votre première adhésion ?'))
+        asyncio.run(tools['collect_field']('type_demande', 'nouvelle adhésion'))
+        asyncio.run(tools['propose_resolution']('Orientation fictive vers le guichet adhésion.', 'adhesion-qualification'))
+        asyncio.run(tools['finalize_call']('Nouvelle adhésion qualifiée et orientation fictive proposée.'))
+        assert publisher.last['is_final'] is True
+        assert publisher.last['procedure']['id'] == 'adhesion-qualification'
+        assert publisher.last['resolution']['status'] == 'proposed'
