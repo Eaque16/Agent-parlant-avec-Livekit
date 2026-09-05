@@ -26,6 +26,22 @@ CREATE TABLE IF NOT EXISTS audit_events (
   id INTEGER PRIMARY KEY AUTOINCREMENT, conversation_id TEXT NOT NULL,
   event_type TEXT NOT NULL, payload TEXT NOT NULL, created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS call_sessions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  conversation_id TEXT NOT NULL,
+  room_name TEXT NOT NULL,
+  provider TEXT NOT NULL,
+  voice TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'active',
+  started_at TEXT NOT NULL,
+  ended_at TEXT,
+  duration_seconds INTEGER,
+  end_reason TEXT,
+  FOREIGN KEY(conversation_id) REFERENCES conversations(id),
+  UNIQUE(conversation_id, room_name)
+);
+CREATE INDEX IF NOT EXISTS idx_call_sessions_conversation
+  ON call_sessions(conversation_id, started_at);
 """
 
 # Tables rattachées à une conversation, dans l'ordre de suppression.
@@ -36,6 +52,7 @@ CONVERSATION_CHILD_TABLES = (
     "escalation_tickets",
     "messages",
     "audit_events",
+    "call_sessions",
 )
 
 
@@ -106,6 +123,69 @@ def add_audit_event(conversation_id: str, event_type: str, payload: dict) -> Non
         )
 
 
+def start_call(conversation_id: str, room_name: str, provider: str, voice: str) -> dict:
+    """Crée une session d'appel, sans doublon si le worker se reconnecte à la room."""
+    now = utcnow()
+    with connection() as db:
+        db.execute(
+            """INSERT INTO call_sessions
+               (conversation_id, room_name, provider, voice, status, started_at)
+               VALUES (?, ?, ?, ?, 'active', ?)
+               ON CONFLICT(conversation_id, room_name) DO UPDATE SET
+                 provider=excluded.provider, voice=excluded.voice, status='active',
+                 ended_at=NULL, duration_seconds=NULL, end_reason=NULL""",
+            (conversation_id, room_name, provider, voice, now),
+        )
+        db.execute(
+            "UPDATE conversations SET status='active', updated_at=? WHERE id=?",
+            (now, conversation_id),
+        )
+        row = db.execute(
+            "SELECT * FROM call_sessions WHERE conversation_id=? AND room_name=?",
+            (conversation_id, room_name),
+        ).fetchone()
+        return dict(row)
+
+
+def end_call(conversation_id: str, room_name: str, reason: str | None = None) -> dict | None:
+    """Clôture une session active et calcule sa durée à partir des dates persistées."""
+    now = utcnow()
+    with connection() as db:
+        row = db.execute(
+            "SELECT * FROM call_sessions WHERE conversation_id=? AND room_name=?",
+            (conversation_id, room_name),
+        ).fetchone()
+        if not row:
+            return None
+        if row["status"] == "ended":
+            return dict(row)
+        started_at = datetime.fromisoformat(row["started_at"])
+        duration = max(0, int((datetime.fromisoformat(now) - started_at).total_seconds()))
+        db.execute(
+            """UPDATE call_sessions SET status='ended', ended_at=?, duration_seconds=?, end_reason=?
+               WHERE conversation_id=? AND room_name=?""",
+            (now, duration, reason, conversation_id, room_name),
+        )
+        db.execute(
+            "UPDATE conversations SET status='closed', updated_at=? WHERE id=?",
+            (now, conversation_id),
+        )
+        result = db.execute(
+            "SELECT * FROM call_sessions WHERE conversation_id=? AND room_name=?",
+            (conversation_id, room_name),
+        ).fetchone()
+        return dict(result)
+
+
+def list_call_sessions(conversation_id: str) -> list[dict]:
+    with connection() as db:
+        rows = db.execute(
+            "SELECT * FROM call_sessions WHERE conversation_id=? ORDER BY started_at, id",
+            (conversation_id,),
+        )
+        return [dict(row) for row in rows]
+
+
 def get_conversation(conversation_id: str) -> dict | None:
     with connection() as db:
         row = db.execute("SELECT * FROM conversations WHERE id=?", (conversation_id,)).fetchone()
@@ -117,6 +197,7 @@ def get_conversation(conversation_id: str) -> dict | None:
             (conversation_id,),
         )
         result["messages"] = [dict(message) for message in messages]
+        result["calls"] = list_call_sessions(conversation_id)
         return result
 
 

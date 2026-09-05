@@ -144,6 +144,35 @@ def test_internal_agent_events_require_key_and_are_persisted(client, conversatio
     )
 
 
+def test_call_lifecycle_is_recorded_in_database(client, conversation_id, agent_key):
+    url = f"/api/internal/conversations/{conversation_id}/call-events"
+    headers = {"X-Agent-Key": agent_key}
+    base = {
+        "room_name": f"asaci-demo-{conversation_id}",
+        "provider": "google",
+        "voice": "Kore",
+    }
+
+    started = client.post(url, headers=headers, json={**base, "event_type": "started"})
+    assert started.status_code == 200
+    assert started.json()["call"]["status"] == "active"
+
+    ended = client.post(
+        url,
+        headers=headers,
+        json={**base, "event_type": "ended", "reason": "room_disconnected"},
+    )
+    assert ended.status_code == 200
+    assert ended.json()["call"]["status"] == "ended"
+    assert ended.json()["call"]["duration_seconds"] >= 0
+
+    conversation = client.get(f"/api/conversations/{conversation_id}").json()
+    assert conversation["status"] == "closed"
+    assert len(conversation["calls"]) == 1
+    assert conversation["calls"][0]["voice"] == "Kore"
+    assert client.get(f"/api/conversations/{conversation_id}/calls").json() == conversation["calls"]
+
+
 def test_internal_agent_events_fail_closed_without_configured_key(client, conversation_id):
     url = f"/api/internal/conversations/{conversation_id}/agent-events"
     payload = {"role": "user", "content": "Transcription fictive", "event_type": "transcript"}

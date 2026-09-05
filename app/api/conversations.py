@@ -24,6 +24,11 @@ def read_conversation(conversation: dict = Depends(load_conversation)):
     return conversation
 
 
+@router.get("/conversations/{conversation_id}/calls")
+def read_calls(conversation: dict = Depends(load_conversation)):
+    return db.list_call_sessions(conversation["id"])
+
+
 @router.post("/conversations/{conversation_id}/messages")
 def post_message(payload: MessageCreate, conversation: dict = Depends(load_conversation)):
     return handle_user_message(conversation, payload.text)

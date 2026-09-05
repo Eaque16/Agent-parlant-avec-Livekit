@@ -59,6 +59,34 @@ async def _persist_event(conversation_id: str, role: str, content: str, event_ty
         logger.exception("Échec de conservation de l'événement vocal")
 
 
+async def _persist_call_event(
+    conversation_id: str,
+    room_name: str,
+    event_type: str,
+    reason: str | None = None,
+) -> None:
+    """Enregistre le cycle de vie de l'appel sans inclure de secret dans les journaux."""
+    if not settings.agent_api_key:
+        logger.warning("Appel non conservé : AGENT_INTERNAL_API_KEY absente")
+        return
+    url = f"{settings.api_base_url}/api/internal/conversations/{conversation_id}/call-events"
+    voice = settings.google_voice if settings.voice_provider == "google" else settings.openai_voice
+    payload = {
+        "event_type": event_type,
+        "room_name": room_name,
+        "provider": settings.voice_provider,
+        "voice": voice,
+        "reason": reason,
+    }
+    try:
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=5)) as client:
+            async with client.post(url, headers={"X-Agent-Key": settings.agent_api_key}, json=payload) as response:
+                if response.status >= 300:
+                    logger.error("Conservation du cycle d'appel refusée (%s)", response.status)
+    except (TimeoutError, aiohttp.ClientError):
+        logger.exception("Échec de conservation du cycle d'appel")
+
+
 async def _load_procedures() -> list[dict]:
     async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=5)) as client:
         async with client.get(f"{settings.api_base_url}/api/procedures") as response:
@@ -114,7 +142,17 @@ async def entrypoint(ctx: agents.JobContext) -> None:
         _spawn(_persist_event(conversation_id, "user", text, "transcript"))
         session.generate_reply(user_input=text, allow_interruptions=True)
 
+    @ctx.room.on("disconnected")
+    def on_room_disconnected(*_) -> None:
+        _spawn(_persist_call_event(conversation_id, ctx.room.name, "ended", "room_disconnected"))
+
+    @ctx.room.on("participant_disconnected")
+    def on_participant_disconnected(participant) -> None:
+        if getattr(participant, "identity", "").startswith("caller-"):
+            _spawn(_persist_call_event(conversation_id, ctx.room.name, "ended", "caller_disconnected"))
+
     await session.start(room=ctx.room, agent=Agent(instructions=build_instructions(procedures), tools=tools))
+    await _persist_call_event(conversation_id, ctx.room.name, "started")
     await session.generate_reply(instructions=GREETING_INSTRUCTIONS)
 
 

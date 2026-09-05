@@ -1,6 +1,18 @@
 export type Message = { role: 'user' | 'assistant'; content: string; created_at?: string }
 
-export type Conversation = { id: string; messages: Message[]; status: string }
+export type CallSession = {
+  id: number
+  room_name: string
+  provider: string
+  voice: string
+  status: 'active' | 'ended'
+  started_at: string
+  ended_at?: string
+  duration_seconds?: number
+  end_reason?: string
+}
+
+export type Conversation = { id: string; messages: Message[]; calls: CallSession[]; status: string }
 
 export type Outcome = {
   transcript: string

@@ -20,3 +20,11 @@ class AgentEventCreate(BaseModel):
     role: str = Field(pattern="^(user|assistant|system)$")
     content: str = Field(min_length=1, max_length=8000)
     event_type: str = Field(pattern="^(transcript|agent_reply|error)$")
+
+
+class CallEventCreate(BaseModel):
+    event_type: str = Field(pattern="^(started|ended)$")
+    room_name: str = Field(min_length=1, max_length=160)
+    provider: str = Field(min_length=1, max_length=40)
+    voice: str = Field(min_length=1, max_length=80)
+    reason: str | None = Field(default=None, max_length=200)

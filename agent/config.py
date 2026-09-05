@@ -21,7 +21,7 @@ class AgentSettings:
     voice_provider: str = os.getenv("VOICE_PROVIDER", "google").strip().lower()
     google_api_key: str | None = os.getenv("GOOGLE_API_KEY") or None
     google_model: str = os.getenv("GOOGLE_REALTIME_MODEL", "gemini-2.5-flash-native-audio-preview-12-2025")
-    google_voice: str = os.getenv("GOOGLE_REALTIME_VOICE", "Puck")
+    google_voice: str = os.getenv("GOOGLE_REALTIME_VOICE", "Kore")
     openai_model: str = os.getenv("OPENAI_REALTIME_MODEL", "gpt-realtime")
     openai_voice: str = os.getenv("OPENAI_REALTIME_VOICE", "coral")
 
